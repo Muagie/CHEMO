@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>病患資料與處方</title>
+<style>
+:root{
+  --bg:#e9eff2; --sheet:#ffffff; --ink:#15262e; --sub:#5a6e78; --rule:#c8d5db; --lab:#e9f0f3;
+  --head:#1f4e5f; --head-ink:#ffffff; --sel:#fde7a6; --sel-edge:#c27c00; --ga:#d9ecf4;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1a20; --sheet:#16252d; --ink:#e4eef2; --sub:#92a8b2; --rule:#2c414b; --lab:#1f333c;
+    --head:#2a6b82; --head-ink:#ffffff; --sel:#5a4a14; --sel-edge:#f0b429; --ga:#1f3d4b;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1a20; --sheet:#16252d; --ink:#e4eef2; --sub:#92a8b2; --rule:#2c414b; --lab:#1f333c;
+  --head:#2a6b82; --head-ink:#ffffff; --sel:#5a4a14; --sel-edge:#f0b429; --ga:#1f3d4b;
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);
+  font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  font-size:14px;line-height:1.35;
+  padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+.app{height:100%;display:flex;flex-direction:column;padding:8px 12px;gap:6px}
+.bar{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.bar h1{font-size:15px;margin:0;font-weight:700}
+.bar p{margin:0;font-size:12px;color:var(--sub)}
+.scroll{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.sheet{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;overflow:clip;flex:none}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+th,td{padding:0 8px;text-align:left;border-bottom:1px solid var(--rule)}
+tbody tr:last-child td{border-bottom:0}
+td{font-variant-numeric:tabular-nums;font-size:13px}
+td small{display:block;font-weight:400;font-size:11px;color:var(--sub)}
+.pt td{height:28px;padding:0 8px}
+.pt td.l{background:var(--lab);font-size:12px;font-weight:600;color:var(--sub)}
+.pt td.v small{display:inline;margin-left:3px}
+.pt td.stage{height:32px;font-size:14px}
+.stage .g{display:inline-block;margin-right:22px;white-space:nowrap}
+.stage b{font-weight:700}
+.stage i{font-style:normal;display:inline-block;min-width:1.2em;text-align:center}
+thead th{position:sticky;top:0;z-index:1;background:var(--head);color:var(--head-ink);
+  height:34px;font-size:12px;font-weight:600;border-bottom:0}
+tbody tr.drug{height:48px}
+tbody tr.drug td{border-bottom:1px dashed var(--rule)}
+tbody tr.fluid{height:40px}
+tbody tr.fluid td:first-child{padding-left:20px}
+tbody tr.ga{background:var(--ga)}
+tbody tr.gb{background:var(--sheet)}
+td.name{font-weight:600}
+tbody tr.fluid td.name{font-weight:500}
+td.tag{color:var(--sub);font-size:12px}
+td.cell{position:relative;cursor:pointer;-webkit-tap-highlight-color:transparent}
+td.cell[aria-selected="true"]{background:var(--sel);box-shadow:inset 0 0 0 2px var(--sel-edge)}
+td.cell:focus-visible{outline:2px solid var(--sel-edge);outline-offset:-2px}
+td.cell[data-r]{color:#fff;box-shadow:none}
+td.cell[data-r] small{color:rgba(255,255,255,.85)}
+td.cell[data-r="ok"]{background:#1d7a46}
+td.cell[data-r="bad"]{background:#b3261e}
+td.cell[data-r="miss"]{background:#b25e00}
+td.cell[data-r]::after{position:absolute;top:2px;right:4px;font-size:11px;font-weight:700}
+td.cell[data-r="ok"]::after{content:"✓"}
+td.cell[data-r="bad"]::after{content:"✗"}
+td.cell[data-r="miss"]::after{content:"!"}
+.hint{font-size:12px;color:var(--sub);margin:0}
+.foot{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.nav{display:flex;align-items:center;gap:8px}
+.nav button{min-height:36px;padding:0 14px;border-radius:6px;font:inherit;font-weight:600;cursor:pointer;border:1px solid var(--rule);background:transparent;color:var(--ink)}
+.nav button:disabled{opacity:.4;cursor:default}
+.nav button:focus-visible{outline:2px solid var(--sel-edge);outline-offset:2px}
+.nav #submit{border:0;background:var(--head);color:var(--head-ink);padding:0 18px}
+#count{font-size:12px;color:var(--sub);min-width:3.2em;text-align:center}
+.result{padding:10px 12px}
+.result[hidden]{display:none}
+.result h2{font-size:14px;margin:0 0 6px}
+.result p{margin:4px 0;font-size:13px}
+.result .legend{color:var(--sub);font-size:12px}
+.rotate{display:none;position:fixed;inset:0;background:var(--bg);z-index:10;
+  align-items:center;justify-content:center;text-align:center;padding:24px;font-size:16px}
+@media (orientation:portrait){.rotate{display:flex}}
+</style>
+</head>
+<body>
+<div class="rotate">請將手機轉橫，再開始作答</div>
+<main class="app">
+  <div class="bar">
+    <h1>病患資料與處方</h1>
+    <p>點選你認為有疑義或需要注意的欄位，完成後按送出作答。</p>
+  </div>
+  <div class="scroll" id="scroll">
+    <section class="sheet"><table class="pt"><tbody id="pt"></tbody></table></section>
+    <section class="sheet">
+      <table>
+        <colgroup>
+          <col style="width:24%"><col style="width:13%"><col style="width:10%"><col style="width:8%">
+          <col style="width:15%"><col style="width:14%"><col style="width:16%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th scope="col">藥品名稱</th><th scope="col">支數</th><th scope="col">頻率</th><th scope="col">途徑</th>
+            <th scope="col" title="每體表面積劑量">劑量/m²</th><th scope="col">總劑量</th><th scope="col">輸注時間</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </section>
+    <section class="sheet result" id="result" hidden></section>
+  </div>
+  <div class="foot">
+    <p class="hint"></p>
+    <div class="nav">
+      <button id="prev" type="button">‹ 上一題</button>
+      <span id="count"></span>
+      <button id="next" type="button">下一題 ›</button>
+      <button id="submit" type="button">送出作答</button>
+    </div>
+  </div>
+</main>
+<script>
+/* =====================================================================
+   題庫 QUESTIONS：每一題一個區塊，照下面的格式新增即可
+   patient：T/N/M、C(療程)、D(第幾天)、P(活動度)、基本資料、檢驗值
+   drugs  ：每個藥一筆。n=商品名(大字) s=學名(小字，與商品名相同則不顯示)
+            d=支數 dv=規格 f=頻率 r=途徑 m=劑量/m² t=總劑量 i=輸注時間
+            fa=點滴品名 fb=點滴學名 fv=點滴容量
+            extra=同一藥的其他規格列(例如 Alimta 100 mg)，欄位只需 n s d dv
+   key    ：答案。"藥品序號.欄位"：解說（序號從 0 開始；
+            欄位 n d f r m t i fa fv；其他規格列為 n1 d1…；
+            病患檢驗值寫成 "p.ANC"；「注意」項目(非錯誤)寫成 {note:"解說"}）
+   ===================================================================== */
+const QUESTIONS=[
+{
+  patient:{T:"2",N:"2",M:"0",C:"1",D:"1",P:"0",name:"陳倉鼠",sex:"女",height:"153",weight:"50",
+    labs:{BSA:"1.5",CRE:"0.59",WBC:"5430",BUN:"18",ANC:"1382",eGFR:"115",Mono:"11.3",AST:"22",Platelet:"203000",ALT:"33"}},
+  drugs:[
+    {n:"NS 500 mL",s:"normal saline",d:"1 pack",dv:"500 mL/pack",f:"STAT",r:"IVD",m:"—",t:"—",i:"Keep line"},
+    {n:"Methasone",s:"dexamethasone phosphate",d:"3 amp",dv:"5 mg/1 mL/amp",f:"STAT",r:"IVD",m:"—",t:"15 mg",i:"5分"},
+    {n:"Akynzeo",s:"netupitant/palonosetron",d:"1 cap",dv:"300/0.5 mg/cap",f:"STAT",r:"PO",m:"—",t:"1 cap",i:"—"},
+    {n:"Aloxi",s:"palonosetron",d:"1 vial",dv:"0.25 mg/5 mL/vial",f:"STAT",r:"IVD",m:"—",t:"0.25 mg",i:"2分"},
+    {n:"Venacalo-B6",s:"",d:"1 amp",dv:"5 mL/amp",f:"STAT",r:"IVD",m:"—",t:"1 amp",i:"—"},
+    {n:"Endoxan",s:"cyclophosphamide",d:"2 vial",dv:"500 mg/vial",f:"STAT",r:"IVD",m:"600 mg/m²",t:"900 mg",i:"30分",fa:"NS",fb:"normal saline",fv:"250 mL"},
+    {n:"Pharmorubicin",s:"epirubicin",d:"14 vial",dv:"10 mg/vial",f:"STAT",r:"IVD",m:"90 mg/m²",t:"135 mg",i:"30分",fa:"NS",fb:"normal saline",fv:"250 mL"},
+    {n:"5-Fu Injection",s:"fluorouracil",d:"1 vial",dv:"1000 mg/vial",f:"STAT",r:"IVD",m:"600 mg/m²",t:"900 mg",i:"30分",fa:"NS",fb:"normal saline",fv:"250 mL"},
+    {n:"Herceptin",s:"trastuzumab",d:"1 vial",dv:"440 mg/vial",f:"STAT",r:"IVD",m:"8 mg/kg",t:"400 mg",i:"90分",fa:"NS",fb:"normal saline",fv:"250 mL"}
+  ],
+  key:{
+    "p.ANC":{note:"ANC 低於 1500 時使用化療有風險性，需評估 Mono 數量；若 Mono 也偏低，需致電醫師提醒檢驗數值偏低，確認今日是否施打化療。"},
+    "p.Mono":{note:"Mono > 10，病患應已使用白血球生成素，血液細胞生成中，即使 ANC 稍微偏低仍可繼續施打化療。"},
+    "3.n":"已開立 Akynzeo，再使用 Aloxi 為同機轉藥物（5-HT3）重複開立。本組套為高致吐性，應合併使用 NK-1 與 5-HT3 藥品，故應刪除 Aloxi。（健保規範：使用 Akynzeo 3 天內不得併用其他 5-HT3 抑制劑或 NK-1 抑制劑止吐劑。）若要選擇 Aloxi 1 vial/STAT IVD，建議再加開 Emend（aprepitant，NK-1 抑制劑）1 顆 QD × 3 天。",
+    "8.n":"Epirubicin 與 Herceptin 併用，對於心臟毒性有加乘作用。接受放射治療時，若照射部位在胸腔、甚至是心臟區域，對心臟功能的危害也會增加。若要繼續使用 CEF 組套，則建議 DC Herceptin。"
+  }
+}
+];
+
+const UNITS={BSA:"m²",CRE:"mg/dL",WBC:"/µL",BUN:"mg/dL",ANC:"/µL",eGFR:"mL/min/1.73m²",Mono:"%",AST:"IU/L",Platelet:"/µL",ALT:"IU/L"};
+const LABN={AST:"AST(GOT)",ALT:"ALT(GPT)"};
+const LAB_ROWS=[["BSA","CRE"],["WBC","BUN"],["ANC","eGFR"],["Mono","AST"],["Platelet","ALT"]];
+const labels={n:"藥品名稱",d:"支數",f:"頻率",r:"途徑",m:"劑量/m²",t:"總劑量",i:"輸注時間",fa:"點滴品名",fv:"點滴容量"};
+
+const pt=document.getElementById("pt"),tb=document.getElementById("rows"),result=document.getElementById("result");
+const btn=document.getElementById("submit"),prev=document.getElementById("prev"),next=document.getElementById("next"),count=document.getElementById("count");
+const S=QUESTIONS.map(()=>({sel:new Set(),done:false}));
+let qi=0,locked=false,cells={};
+
+function renderPatient(p){
+  const cell=(l,v,u,s,k)=>`<td class="l" colspan="${s}">${l}</td><td class="v" colspan="${s}"${k?` data-k="${k}"`:""}>${v}${u?`<small>${u}</small>`:""}</td>`;
+  const rows=[`<tr><td class="stage" colspan="8">
+    <span class="g"><b>T</b>(<i>${p.T}</i>) <b>N</b>(<i>${p.N}</i>) <b>M</b>(<i>${p.M}</i>)</span>
+    <span class="g"><b title="療程次數 Cycle">C</b>(<i>${p.C}</i>) <b title="療程中的第幾天 Day">D</b>(<i>${p.D}</i>)</span>
+    <span class="g"><b title="活動度 Performance status">P</b>(<i>${p.P}</i>)</span></td></tr>`];
+  rows.push("<tr>"+cell("姓名",p.name,"",1)+cell("性別",p.sex,"",1)+cell("身高",p.height,"cm",1)+cell("體重",p.weight,"kg",1)+"</tr>");
+  LAB_ROWS.forEach(r=>rows.push("<tr>"+r.map(k=>cell(LABN[k]||k,p.labs[k],UNITS[k],2,k)).join("")+"</tr>"));
+  pt.innerHTML=rows.join("");
+  pt.querySelectorAll("td.v[data-k]").forEach(v=>{
+    const id="p."+v.dataset.k,sel=S[qi].sel;
+    v.classList.add("cell");v.tabIndex=0;v.setAttribute("aria-selected",sel.has(id)?"true":"false");cells[id]=v;
+    const t=()=>{if(locked)return;sel.has(id)?sel.delete(id):sel.add(id);v.setAttribute("aria-selected",sel.has(id)?"true":"false");};
+    v.addEventListener("click",t);
+    v.addEventListener("keydown",ev=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();t();}});
+    v.previousElementSibling.addEventListener("click",t);
+  });
+}
+function td(id,html,cls){
+  const e=document.createElement("td"),sel=S[qi].sel;
+  e.className="cell "+(cls||"");e.tabIndex=0;e.setAttribute("aria-selected",sel.has(id)?"true":"false");e.innerHTML=html;
+  cells[id]=e;
+  const t=()=>{if(locked)return;sel.has(id)?sel.delete(id):sel.add(id);e.setAttribute("aria-selected",sel.has(id)?"true":"false");};
+  e.addEventListener("click",t);
+  e.addEventListener("keydown",ev=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();t();}});
+  return e;
+}
+const nm=id=>{const drugs=QUESTIONS[qi].drugs,[k,f]=id.split("."),m=f.match(/^([nd])(\d*)$/);
+  if(k==="p")return `${LABN[f]||f} 檢驗值`;
+  if(m){const p=m[2]?drugs[k].extra[m[2]-1]:drugs[k];return `${p.n} 的${labels[m[1]]}`;}
+  return `${drugs[k].n} 的${labels[f]}`;};
+const small=p=>!p.s||p.s.toLowerCase()===p.n.toLowerCase()?"":`<small>${p.s}</small>`;
+
+function show(i){
+  qi=i;const q=QUESTIONS[i],st=S[i];
+  cells={};tb.innerHTML="";renderPatient(q.patient);
+  q.drugs.forEach((x,k)=>{
+    const g=k%2?"gb":"ga",prods=[x].concat(x.extra||[]);
+    prods.forEach((p,j)=>{
+      const a=document.createElement("tr");a.className="drug "+g;
+      const sfx=j?j:"";
+      a.appendChild(td(k+".n"+sfx,p.n+small(p),"name"));
+      a.appendChild(td(k+".d"+sfx,`${p.d}<small>${p.dv}</small>`));
+      if(!j)[["f",x.f],["r",x.r],["m",x.m],["t",x.t],["i",x.i]].forEach(([f,h])=>{const c=td(k+"."+f,h);c.rowSpan=prods.length;a.appendChild(c);});
+      tb.appendChild(a);
+    });
+    if(!x.fa)return;
+    const b=document.createElement("tr");b.className="fluid "+g;
+    b.appendChild(td(k+".fa",`↳ ${x.fa}<small>${x.fb}</small>`,"name"));
+    b.appendChild(td(k+".fv",x.fv));
+    const tag=document.createElement("td");tag.colSpan=5;tag.className="tag";tag.textContent="輸注用點滴";
+    b.appendChild(tag);tb.appendChild(b);
+  });
+  locked=st.done;result.hidden=true;
+  if(locked)grade();
+  btn.textContent=locked?"重新作答":"送出作答";
+  count.textContent=`${i+1} / ${QUESTIONS.length}`;
+  prev.disabled=i===0;next.disabled=i===QUESTIONS.length-1;
+  document.getElementById("scroll").scrollTop=0;
+}
+function grade(){
+  const key=QUESTIONS[qi].key,keys=Object.keys(key);let hit=0;const wrong=[];
+  for(const id in cells){
+    const c=cells[id],sel=c.getAttribute("aria-selected")==="true",inKey=id in key;
+    if(sel&&inKey){c.dataset.r="ok";hit++;}
+    else if(sel){c.dataset.r="bad";wrong.push(id);}
+    else if(inKey)c.dataset.r="miss";
+  }
+  result.innerHTML=`<h2>抓到 ${hit}/${keys.length}，誤判 ${wrong.length}</h2>`
+    +keys.map(id=>{const v=key[id],note=typeof v!=="string";return `<p><b>${note?"【注意】":""}${nm(id)}</b>：${note?v.note:v}</p>`;}).join("")
+    +(wrong.length?`<p>誤判（原本沒有問題）：${wrong.map(nm).join("、")}</p>`:"")
+    +`<p class="legend">綠色 ✓ 答對，紅色 ✗ 誤判，橘色 ! 漏掉</p>`;
+  result.hidden=false;
+}
+btn.addEventListener("click",()=>{
+  const st=S[qi];
+  if(st.done){st.done=false;st.sel.clear();show(qi);return;}
+  st.done=true;locked=true;grade();btn.textContent="重新作答";result.scrollIntoView({block:"nearest"});
+});
+prev.addEventListener("click",()=>show(qi-1));
+next.addEventListener("click",()=>show(qi+1));
+if(QUESTIONS.length===1){prev.hidden=next.hidden=count.hidden=true;}
+show(0);
+</script>
+</body>
+</html>
