@@ -63,7 +63,8 @@ td.cell[data-r]{color:#fff;box-shadow:none}
 td.cell[data-r] small{color:rgba(255,255,255,.85)}
 td.cell[data-r="ok"]{background:#1d7a46}
 td.cell[data-r="bad"]{background:#b3261e}
-td.cell[data-r="miss"]{background:#b25e00}
+td.cell[data-r="miss"]{background:#ffe55c;color:#3b3000}
+td.cell[data-r="miss"] small{color:rgba(59,48,0,.75)}
 td.cell[data-r]::after{position:absolute;top:2px;right:4px;font-size:11px;font-weight:700}
 td.cell[data-r="ok"]::after{content:"✓"}
 td.cell[data-r="bad"]::after{content:"✗"}
@@ -239,7 +240,7 @@ function grade(){
   result.innerHTML=`<h2>抓到 ${hit}/${keys.length}，誤判 ${wrong.length}</h2>`
     +keys.map(id=>{const v=key[id],note=typeof v!=="string";return `<p><b>${note?"【注意】":""}${nm(id)}</b>：${note?v.note:v}</p>`;}).join("")
     +(wrong.length?`<p>誤判（原本沒有問題）：${wrong.map(nm).join("、")}</p>`:"")
-    +`<p class="legend">綠色 ✓ 答對，紅色 ✗ 誤判，橘色 ! 漏掉</p>`;
+    +`<p class="legend">綠色 ✓ 答對，紅色 ✗ 誤判，黃色 ! 漏掉</p>`;
   result.hidden=false;
 }
 btn.addEventListener("click",()=>{
